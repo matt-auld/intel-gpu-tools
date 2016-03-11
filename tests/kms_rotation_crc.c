@@ -559,6 +559,48 @@ err_commit:
 	igt_assert_eq(ret, -EINVAL);
 }
 
+static void test_plane_rotation_xtiled_invalid(data_t *data, enum igt_plane plane_type)
+{
+	igt_display_t *display = &data->display;
+	int fd = data->gfx_fd, fb_id;
+	uint64_t tiling = LOCAL_I915_FORMAT_MOD_X_TILED;
+	uint32_t pixel_format = DRM_FORMAT_XRGB8888;
+	enum igt_commit_style commit = COMMIT_LEGACY;
+	igt_output_t *output = &display->outputs[0];
+	igt_plane_t *plane;
+	drmModeModeInfo *mode;
+	int ret;
+
+	if (plane_type == IGT_PLANE_PRIMARY || plane_type == IGT_PLANE_CURSOR) {
+		igt_require(data->display.has_universal_planes);
+		commit = COMMIT_UNIVERSAL;
+	}
+
+	igt_require(output != NULL && output->valid == true);
+
+	plane = igt_output_get_plane(output, plane_type);
+	igt_require(igt_plane_supports_rotation(plane));
+
+	mode = igt_output_get_mode(output);
+
+	fb_id = igt_create_fb(fd, mode->hdisplay, mode->vdisplay, pixel_format,
+			      tiling, &data->fb);
+	igt_assert(fb_id);
+
+	igt_plane_set_fb(plane, NULL);
+	igt_display_commit(display);
+
+	igt_plane_set_fb(plane, &data->fb);
+
+	igt_plane_set_rotation(plane, data->rotation);
+	ret = igt_display_try_commit2(display, commit);
+
+	igt_remove_fb(fd, &data->fb);
+	kmstest_restore_vt_mode();
+
+	igt_assert_eq(ret, -EINVAL);
+}
+
 igt_main
 {
 	data_t data = {};
@@ -652,6 +694,18 @@ igt_main
 		igt_require(gen >= 9);
 		data.rotation = IGT_ROTATION_90;
 		test_plane_rotation_ytiled_obj(&data, IGT_PLANE_PRIMARY);
+	}
+
+	igt_subtest_f("primary-rotation-90-X-tiled-invalid") {
+		igt_require(gen >= 9);
+		data.rotation = IGT_ROTATION_90;
+		test_plane_rotation_xtiled_invalid(&data, IGT_PLANE_PRIMARY);
+	}
+
+	igt_subtest_f("primary-rotation-270-X-tiled-invalid") {
+		igt_require(gen >= 9);
+		data.rotation = IGT_ROTATION_270;
+		test_plane_rotation_xtiled_invalid(&data, IGT_PLANE_PRIMARY);
 	}
 
 	igt_subtest_f("exhaust-fences") {
