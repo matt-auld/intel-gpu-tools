@@ -491,6 +491,74 @@ err_commit:
 	igt_assert(ret == 0);
 }
 
+static void exhaust_invalid_plane_rotations(data_t *data, enum igt_plane plane_type)
+{
+	igt_display_t *display = &data->display;
+	int fd = data->gfx_fd, fb_id;
+	uint64_t tiling;
+	uint32_t pixel_format = DRM_FORMAT_XRGB8888;
+	enum igt_commit_style commit = COMMIT_LEGACY;
+	igt_output_t *output = &display->outputs[0];
+	igt_plane_t *plane;
+	drmModeModeInfo *mode;
+	drmModePropertyPtr prop;
+	uint64_t supported_plane_rotations = 0, rotation = IGT_ROTATION_0;
+	int ret, i;
+
+	if (intel_gen(intel_get_drm_devid(fd)) >= 9)
+		tiling = LOCAL_I915_FORMAT_MOD_Y_TILED;
+	else
+		tiling = LOCAL_I915_FORMAT_MOD_X_TILED;
+
+	if (plane_type == IGT_PLANE_PRIMARY || plane_type == IGT_PLANE_CURSOR) {
+		igt_require(data->display.has_universal_planes);
+		commit = COMMIT_UNIVERSAL;
+	}
+
+	if (plane_type == IGT_PLANE_CURSOR)
+		pixel_format = DRM_FORMAT_ARGB8888;
+
+	igt_require(output != NULL && output->valid == true);
+
+	plane = igt_output_get_plane(output, plane_type);
+	igt_require(igt_plane_supports_rotation(plane));
+
+	mode = igt_output_get_mode(output);
+
+	fb_id = igt_create_fb(fd, mode->hdisplay, mode->vdisplay, pixel_format,
+			      tiling, &data->fb);
+	igt_assert(fb_id);
+
+	igt_plane_set_fb(plane, NULL);
+	igt_display_commit(display);
+
+	igt_plane_set_fb(plane, &data->fb);
+
+	kmstest_get_property(fd, plane->drm_plane->plane_id, DRM_MODE_OBJECT_PLANE,
+			     "rotation", NULL, NULL, &prop);
+
+	for (i = 0; i < prop->count_enums; ++i)
+		supported_plane_rotations |= (1ULL << prop->enums[i].value);
+
+	for (i = 1; i <= 4; i++) {
+		if (!(rotation & supported_plane_rotations)) {
+			igt_plane_set_rotation(plane, rotation);
+
+			ret = igt_display_try_commit2(display, commit);
+			if (ret != -EINVAL)
+				goto err_commit;
+
+		}
+		rotation <<= 1;
+	}
+
+err_commit:
+	igt_remove_fb(fd, &data->fb);
+	kmstest_restore_vt_mode();
+
+	igt_assert_eq(ret, -EINVAL);
+}
+
 igt_main
 {
 	data_t data = {};
@@ -589,6 +657,18 @@ igt_main
 	igt_subtest_f("exhaust-fences") {
 		igt_require(gen >= 9);
 		test_plane_rotation_exhaust_fences(&data, IGT_PLANE_PRIMARY);
+	}
+
+	igt_subtest_f("primary-rotations-invalid") {
+		exhaust_invalid_plane_rotations(&data, IGT_PLANE_PRIMARY);
+	}
+
+	igt_subtest_f("sprite-rotations-invalid") {
+		exhaust_invalid_plane_rotations(&data, IGT_PLANE_2);
+	}
+
+	igt_subtest_f("cursor-rotations-invalid") {
+		exhaust_invalid_plane_rotations(&data, IGT_PLANE_CURSOR);
 	}
 
 	igt_fixture {
