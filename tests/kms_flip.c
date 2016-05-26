@@ -692,8 +692,8 @@ static void check_state(struct test_output *o, struct event_state *es)
 		timersub(&es->current_ts, &es->last_ts, &diff);
 		usec_interflip = (es->current_seq - es->last_seq) * frame_time(o);
 
-		igt_assert_f(fabs((((double) diff.tv_usec) - usec_interflip) /
-				  usec_interflip) <= 0.005,
+		igt_assert_f(fabs(((double)(1000000 * diff.tv_sec + diff.tv_usec)
+				    - usec_interflip) / usec_interflip) <= 0.005,
 			     "inter-%s ts jitter: %lds, %ldusec\n",
 			     es->name, diff.tv_sec, diff.tv_usec);
 
