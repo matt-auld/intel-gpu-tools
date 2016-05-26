@@ -690,7 +690,7 @@ static void check_state(struct test_output *o, struct event_state *es)
 
 	if ((o->flags & TEST_CHECK_TS) && (!analog_tv_connector(o))) {
 		timersub(&es->current_ts, &es->last_ts, &diff);
-		usec_interflip = (double)o->seq_step * frame_time(o);
+		usec_interflip = (es->current_seq - es->last_seq) * frame_time(o);
 
 		igt_assert_f(fabs((((double) diff.tv_usec) - usec_interflip) /
 				  usec_interflip) <= 0.005,
