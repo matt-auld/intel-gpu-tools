@@ -173,7 +173,7 @@ static void reloc_tests(const char *suffix)
 	uint64_t max_relocations;
 	int i;
 
-	max_relocations = min(ULONG_MAX, SIZE_MAX);
+	max_relocations = UINT_MAX;
 	max_relocations /= sizeof(struct drm_i915_gem_relocation_entry);
 	igt_debug("Maximum allocable relocations: %'llu\n",
 		  (long long)max_relocations);
