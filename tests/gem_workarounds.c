@@ -67,6 +67,8 @@ static int workaround_fail_count(void)
 {
 	int i, fail_count = 0;
 
+	intel_register_access_init(intel_get_pci_device(), 0);
+
 	/* There is a small delay after coming ot of rc6 to the correct
 	   render context values will get loaded by hardware (bdw,chv).
 	   This here ensures that we have the correct context loaded before
@@ -92,6 +94,8 @@ static int workaround_fail_count(void)
 			fail_count++;
 		}
 	}
+
+	intel_register_access_fini();
 
 	return fail_count;
 }
@@ -130,8 +134,6 @@ igt_main
 
 		pci_dev = intel_get_pci_device();
 		igt_require(pci_dev);
-
-		intel_register_access_init(pci_dev, 0);
 
 		file = igt_debugfs_fopen("i915_wa_registers", "r");
 		igt_assert(getline(&line, &line_size, file) > 0);
@@ -173,7 +175,6 @@ igt_main
 
 	igt_fixture {
 		free(wa_regs);
-		intel_register_access_fini();
 	}
 
 }
